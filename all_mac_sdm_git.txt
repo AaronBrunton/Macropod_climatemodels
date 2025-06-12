@@ -1,0 +1,237 @@
+# SEQ Macropod sdms - 
+
+#devtools::install_github("babaknaimi/sdm")
+library(dplyr)
+library(sdm)
+#installAll()
+library(rJava)
+#install.packages("rJava", type = "source")
+library(sp)
+library(maptools)
+library(raster)
+library(terra)
+
+rasterOptions(tmpdir = "E:/perm_temp_raster_dir/")
+
+
+# read in rasters, rename - constrcuted with code from the "all_mac_csiro
+# Import the stacked raster
+mac_preds <- stack("E:/EGK/Sdm_project/rdata/mac_preds.tif")
+mac_preds
+
+# Define new names
+current_names <- c("moist","ndvi", "soil", "elevation", "treecover",  "Max_Mth_Precip", "Max_Mth_Max_Temp")
+
+# Assign new names to the raster stack
+names(mac_preds) <- current_names
+### drop moisture
+
+# Check the names to confirm they have been updated
+print(names(mac_preds))
+# keep all layers except the first one (if "moist" is the first layer)
+mac_preds <- mac_preds[[c(2, 3, 4, 5, 6, 7)]]  # Adjust indices as needed
+
+# read in all macro occurence data @ 100m
+allmac_dat <- read.csv(file = 'All_mac_SEQ_2000_2024.csv', stringsAsFactors = TRUE) 
+head(allmac_dat)
+str(allmac_dat)
+# Select the relevant columns
+allmac_dat <- allmac_dat %>% select(species, lon, lat)
+
+#Convert occurrence data to spatial points data frame
+coordinates(allmac_dat) <- c("lon", "lat")
+# Define the CRS
+proj4string(allmac_dat) <- CRS("+proj=longlat +datum=WGS84")
+# Check data extent
+# Drop the 'year' column
+allmac_dat <- allmac_dat[, !names(allmac_dat) %in% "year"]
+
+# Check the first few rows to confirm conversion
+head(allmac_dat)
+# look at high level maps
+plot(allmac_dat)
+plot(wrld_simpl, add=T, border='blue', lwd=2)
+
+# Clip the SpatialPointsDataFrame to the raster extent
+library(raster)
+raster_extent <- extent(mac_preds)
+clipped_allmac_dat <- crop(allmac_dat, clip_extent)
+raster_extent
+
+# Verify the clipped data
+head(clipped_allmac_dat)
+plot(clipped_allmac_dat)
+plot(wrld_simpl, add=T, border='blue', lwd=2)
+# Get the unique species names
+unique_species <- unique(clipped_allmac_dat$species)
+# Print the unique species names
+print(unique_species)
+# Create a frequency table of species
+species_counts <- table(clipped_allmac_dat$species)
+# Print the counts of each species
+print(species_counts)
+
+# Create the sdmData object
+#sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                           #bg = list(n = 10000, method = 'gRandom', remove = TRUE)) # model object
+#rm(sdm_data_object)
+library(raster)
+
+egk_sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                           bg = egk_bg_points) 
+rnw_sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                               bg = rnw_bg_points) 
+sw_sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                               bg = sw_bg_points) 
+rlpad_sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                               bg = rlpad_bg_points) 
+rnpad_sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                               bg = rnpad_bg_points) 
+pot_sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                               bg = pot_bg_points) 
+bsw_sdm_data_object <- sdmData(species ~., train = clipped_allmac_dat, predictors = mac_preds,
+                               bg = bsw_bg_points)
+
+# formulas for each species
+names(mac_preds)
+formula1 <- EGK ~ ndvi + soil + elevation + treecover + Max_Mth_Precip + Max_Mth_Max_Temp 
+formula2 <- SW ~ ndvi + soil + elevation + treecover + Max_Mth_Precip + Max_Mth_Max_Temp
+formula3 <- RNW ~ ndvi + soil + elevation + treecover + Max_Mth_Precip + Max_Mth_Max_Temp
+formula4 <- POT ~ ndvi + soil + elevation + treecover + Max_Mth_Precip + Max_Mth_Max_Temp
+formula5 <- RLPAD ~ ndvi + soil + elevation + treecover + Max_Mth_Precip + Max_Mth_Max_Temp
+formula6 <- RNPAD ~ ndvi + soil + elevation + treecover + Max_Mth_Precip + Max_Mth_Max_Temp
+formula7 <- BSW ~ ndvi + soil + elevation + treecover + Max_Mth_Precip + Max_Mth_Max_Temp
+
+# species models
+
+  #egks
+set.seed(79)
+egk_mod <- sdm(formula1,
+         data = egk_sdm_data_object,
+         methods = c('rf', 'maxent'),
+         test.p = 20,
+         replication ='cv',cv.folds=5,
+         modelSettings = list(rf = list(n.trees = 500, train.fraction = 0.8, downsample = TRUE),
+                            maxent = list(feat = c("linear", "quadratic"), beta = 2, l = 0.5)))
+         
+# swampies
+set.seed(50)
+sw_mod <- sdm(formula2,
+    data = sw_sdm_data_object,
+    methods = c('rf', 'maxent'),
+    test.p = 20,
+    replication ='cv', cv.folds=5,
+    modelSettings = list(rf = list(n.trees = 500, train.fraction = 0.8,  mtry = 5, downsample = TRUE),
+                         maxent = list(feat = c("linear", "quadratic"), beta = 2, l = 0.5)))
+
+# red necked wallaby
+set.seed(50)
+rnw_mod <- sdm(formula3,
+              data = rnw_sdm_data_object,
+              methods = c('rf', 'maxent'),
+              test.p = 20,
+              replication ='cv', cv.folds=5,
+              modelSettings = list(rf = list(n.trees = 1000, mtry = 4, train.fraction = 0.8, downsample = TRUE),
+                                   maxent = list(feat = c("linear", "quadratic"), beta = 2, l = 0.5)))
+# potoroos
+set.seed(50)
+pot_mod <- sdm(formula4,
+              data = pot_sdm_data_object,
+              methods = c('rf', 'maxent'),
+              test.p = 20,
+              replication ='cv', cv.folds=5,
+              modelSettings = list(rf = list(n.trees = 1500, train.fraction = 0.8,mtry = 5, downsample = TRUE),
+                                   maxent = list(feat = c("linear", "quadratic"), beta = 2, l = 0.5)))
+
+# Red legged Pad
+set.seed(113)
+rlpad_mod <- sdm(formula5,
+              data = rlpad_sdm_data_object,
+              methods = c('rf', 'maxent'),
+              test.p = 20,
+              replication ='cv', cv.folds=5,
+              modelSettings = list(rf = list(n.trees = 1500, train.fraction = 0.8, mtry = 5, downsample = TRUE),
+                                   maxent = list(feat = c("linear", "quadratic"),beta = 3, l = 0.2)))
+# Red neck pad
+set.seed(50)
+rnpad_mod <- sdm(formula6,
+                 data = rnpad_sdm_data_object,
+                 methods = c('rf', 'maxent'),
+                 test.p = 20,
+                 replication ='cv', cv.folds=5,
+                 modelSettings = list(rf = list(n.trees = 1500, train.fraction = 0.8, mtry = 5, downsample = TRUE),
+                                      maxent = list(feat = c("linear", "quadratic"), beta = 2, l = 0.5)))
+# Black stripe
+set.seed(50)
+bsw_mod <- sdm(formula7,
+                 data = bsw_sdm_data_object,
+                 methods = c('rf', 'maxent'),
+                 test.p = 20,
+                 replication ='cv', cv.folds=5,
+                 modelSettings = list(rf = list(n.trees = 1500, train.fraction = 0.8,mtry = 5, downsample = TRUE),
+                  maxent = list(feat = c("linear", "quadratic"), beta = 2, l = 0.5)))
+
+# Check the models
+print(egk_mod)
+print(sw_mod)
+print(rnw_mod)
+print(pot_mod)
+print(rlpad_mod)
+print(rnpad_mod)
+print(bsw_mod)
+
+### model predictions
+egk_pred <- predict(egk_mod, mac_preds, mean = T)
+
+#rm(egk_pred)
+library(raster)
+macpreds
+egk_rf <- predict(egk_mod, mac_preds, mean = TRUE, method = 'rf')
+egk_rf
+bsw_rf_pred <- predict(bsw_mod, mac_preds, mean = TRUE, method = 'rf')
+bsw_rf_pred
+saveRDS(bsw_rf, "bsw_rf.tif")
+bsw_max_pred <- predict(bsw_mod, mac_preds, mean = TRUE, method = 'maxent')
+bsw_max_pred
+saveRDS(bsw_max_pred, "bsw_max.tif")
+plot(bsw_rf, main = "ME-eDist Map with SW Locations")
+plot(bsw_max_pred, main = "ME-eDist Map with SW Locations")
+
+egk_maxent_pred <- predict(egk_mod, mac_preds, mean = TRUE, method = 'maxent')
+plot(egk_maxent_pred, main = "ME-eDist Map with EGK Locations")
+# Compare predictions
+
+sw_pred <- predict(sw_mod, mac_preds, mean = TRUE)
+sw_max_pred <- predict(sw_mod, mac_preds, mean = TRUE)
+plot(sw_pred)
+plot(sw_rf_pred)
+
+rnw_pred <- predict(rnw_mod, mac_preds, mean = TRUE)
+
+pot_pred <- predict(pot_mod, mac_preds, mean = TRUE)
+rlpad_pred <- predict(rlpad_mod, mac_preds, mean = TRUE)
+redneck_pred <- predict(redneck_mod, mac_preds, mean = TRUE)
+bsw_pred <- predict(bsw_mod, mac_preds, mean = TRUE)
+whip_pred <- predict(whip_mod, mac_preds, mean = TRUE, method = 'maxent')
+plot(whip_pred, main = "ME-eDist Map with SW Locations")
+saveRDS(whip_pred, "whip_max.tif")
+
+# Filter data for EGK species
+egk_data <- clipped_allmac_dat[clipped_allmac_dat$species == "EGK", ]
+# Overlay the points for EGK species with transparency and as circles
+#points(egk_data, col = rgb(1, 0, 0, alpha = 0.5), pch = 1, cex = 1)
+# Overlay the points for EGK species
+library(sf)
+points(egk_data, col = "blue", pch = 20, cex = 0.5)
+
+
+# Save a single object
+save(sdm_model_object1, file = "egk_RNSW_sdm_model_object.RData")
+save(sdm_model_object2, file = "sw_aw_sdm_model_object.RData")
+save(sdm_model_object3, file = "pot_rlpad_rnpad_sdm_model_object.RData")
+save(sdm_model_object4, file = "bsw_whip_sdm_model_object.RData")
+
+saveRDS(sdm_model_object, file = "allmac_sdm_model_object.rds")
+
+library(raster)
+

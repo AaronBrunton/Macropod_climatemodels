@@ -1,0 +1,293 @@
+#install.packages("tmap")
+#install.packages("RColorBrewer")
+library(tmap)
+library(RColorBrewer)
+library(ggplot2)
+library(viridis)
+#-----------------
+#Current RF
+
+# Using magma palette
+tm_shape(egk_rf_pred) +
+  tm_raster(palette = magma(30))
+
+# Using inferno palette
+tm_shape(egk_rf_pred) +
+  tm_raster(palette = inferno(30))
+
+# Using plasma palette
+tm_shape(egk_rf_pred) +
+  tm_raster(palette = plasma(30))
+
+# Using cividis palette
+tm_shape(egk_rf_pred) +
+  tm_raster(palette = cividis(30))
+
+# Define the map
+library(tmap)
+
+egk_RF <- tm_shape(egk_rf_r45) + # egk_rf_pred,egk_rf_r45, egk_rf_r85
+  tm_raster(
+    title = "Likelihood", 
+    interpolate = TRUE,
+    legend.show = TRUE,  
+    legend.reverse = TRUE,
+    alpha = 0.7,
+    palette = rev(magma(30)), 
+    style = "cont",
+    breaks = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  tm_shape(seq_prot) +
+  tm_borders(col = "black", lwd = 1, lty = "solid") +  
+  tm_shape(egk_data) +  # Add the points shape
+  tm_symbols(
+    col = "#00BFFF",          # Outline color
+    size = 0.15,            # Make the symbols smaller
+    shape = 1#,            # Shape 21 is a filled circle with border
+    #border.col = "white",   # Border color (same as outline color)
+    #border.lwd = 1#,        # Border line width
+    #fill = "transparent"   # Unfilled circles
+  ) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c("RIGHT", "center"),
+    legend.title.size = 0.1,
+    legend.text.size = 0.75
+  ) +
+  #tm_compass(size = 3, position = c("RIGHT", "TOP")) +
+  #tm_scale_bar(width = 0.2, position = c("LEFT", "BOTTOM"), breaks = c(0, 20, 40, 60),
+               #text.size = 0.6, lwd = 0.5)+#, bg.color = "white") +
+  tmap_options(check.and.fix = TRUE)
+
+# Plot the map
+egk_RF
+
+# Swampies
+sw_rf <- tm_shape(sw_rf_pred) + #sw_rf_pred, sw_rf_r45, sw_rf_r85
+  tm_raster(
+    title = "Likelihood", 
+    interpolate = TRUE,
+    legend.show = TRUE,  
+    legend.reverse = TRUE,
+    alpha = 0.7,
+    palette = rev(magma(30)), 
+    style = "cont",
+    breaks = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  tm_shape(seq_prot) +
+  tm_borders(col = "black", lwd = 1, lty = "solid") +  
+  tm_shape(sw_data) +  # Add the points shape
+  tm_symbols(
+    col = "#00BFFF",          # Outline color
+    size = 0.15,            # Make the symbols smaller
+    shape = 1#,            # Shape 21 is a filled circle with border
+    #border.col = "white",   # Border color (same as outline color)
+    #border.lwd = 1#,        # Border line width
+    #fill = "transparent"   # Unfilled circles
+  ) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c("RIGHT", "center"),
+    legend.title.size = 0.1,
+    legend.text.size = 0.75
+  ) +
+  #tm_compass(size = 3, position = c("RIGHT", "TOP")) +
+  #tm_scale_bar(width = 0.2, position = c("LEFT", "BOTTOM"), breaks = c(0, 20, 40, 60),
+               #text.size = 0.6, lwd = 0.5)+#, bg.color = "white") +
+  tmap_options(check.and.fix = TRUE)
+
+# Print the map
+print(sw_rf)
+
+## Rednecked Wallaby
+rnw_rf <- tm_shape(rnw_rf_pred,) + # rnw_rf_pred,  rnw_rf_r45, rnw_rf_r85
+  tm_raster(
+    title = "Likelihood", 
+    interpolate = TRUE,
+    legend.show = TRUE,  
+    legend.reverse = TRUE,
+    alpha = 0.7,
+    palette = rev(magma(30)), 
+    style = "cont",
+    breaks = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  tm_shape(seq_prot) +
+  tm_borders(col = "black", lwd = 1, lty = "solid") +  
+  tm_shape(rnw_data) +  # Add the points shape
+  tm_symbols(
+    col = "#00BFFF",          # Outline color
+    size = 0.15,            # Make the symbols smaller
+    shape = 1#,            # Shape 21 is a filled circle with border
+    #border.col = "white",   # Border color (same as outline color)
+    #border.lwd = 1#,        # Border line width
+    #fill = "transparent"   # Unfilled circles
+  ) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c("RIGHT", "center"),
+    legend.title.size = 0.1,
+    legend.text.size = 0.75
+  ) +
+  tm_compass(size = 3, position = c("RIGHT", "TOP")) +
+  #tm_scale_bar(width = 0.2, position = c("LEFT", "BOTTOM"), breaks = c(0, 20, 40, 60),
+               #text.size = 0.6, lwd = 0.5)+#, bg.color = "white") +
+  tmap_options(check.and.fix = TRUE)
+
+# Print the map
+print(rnw_rf)
+
+##== Potaroos 
+pot_rf <- tm_shape(pot_rf_r85) + # pot_rf_pred,  pot_rf_r45, pot_rf_r85
+  tm_raster(
+    title = "Likelihood", 
+    interpolate = TRUE,
+    legend.show = TRUE,  
+    legend.reverse = TRUE,
+    alpha = 0.7,
+    palette = rev(magma(30)), 
+    style = "cont",
+    breaks = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  tm_shape(seq_prot) +
+  tm_borders(col = "black", lwd = 1, lty = "solid") +  
+  tm_shape(pot_data) +  # Add the points shape
+  tm_symbols(
+    col = "#00BFFF",          # Outline color
+    size = 0.15,            # Make the symbols smaller
+    shape = 1#,            # Shape 21 is a filled circle with border
+    #border.col = "white",   # Border color (same as outline color)
+    #border.lwd = 1#,        # Border line width
+    #fill = "transparent"   # Unfilled circles
+  ) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c("RIGHT", "center"),
+    legend.title.size = 0.1,
+    legend.text.size = 0.75
+  ) +
+  tm_compass(size = 3, position = c("RIGHT", "TOP")) +
+  #tm_scale_bar(width = 0.2, position = c("LEFT", "BOTTOM"), breaks = c(0, 20, 40, 60),
+  #text.size = 0.6, lwd = 0.5)+
+  tmap_options(check.and.fix = TRUE)
+
+# Print the map
+print(pot_rf)
+
+##== Red leg pademelon
+rlpad_rf <- tm_shape(rlpad_rf_r85) + # rlpad_rf_pred,  rlpad_rf_r45, rlpad_rf_r85
+  tm_raster(
+    title = "Likelihood", 
+    interpolate = TRUE,
+    legend.show = TRUE,  
+    legend.reverse = TRUE,
+    alpha = 0.7,
+    palette = rev(magma(30)), 
+    style = "cont",
+    breaks = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  tm_shape(seq_prot) +
+  tm_borders(col = "black", lwd = 1, lty = "solid") +  
+  tm_shape(rlpad_data) +  # Add the points shape
+  tm_symbols(
+    col = "#00BFFF",          # Outline color
+    size = 0.15,            # Make the symbols smaller
+    shape = 1#,            # Shape 21 is a filled circle with border
+    #border.col = "white",   # Border color (same as outline color)
+    #border.lwd = 1#,        # Border line width
+    #fill = "transparent"   # Unfilled circles
+  ) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c("RIGHT", "center"),
+    legend.title.size = 0.1,
+    legend.text.size = 0.75
+  ) +
+  tm_compass(size = 3, position = c("RIGHT", "TOP")) +
+  #tm_scale_bar(width = 0.2, position = c("LEFT", "BOTTOM"), breaks = c(0, 20, 40, 60),
+  #text.size = 0.6, lwd = 0.5)+
+  tmap_options(check.and.fix = TRUE)
+
+# Print the map
+print(rlpad_rf)
+
+##== Redneck pademelon
+rnpad_rf <- tm_shape(rnpad_rf_pred) + # rnpad_rf_pred, rnpad_rf_r45, rnpad_rf_r85
+  tm_raster(
+    title = "Likelihood", 
+    interpolate = TRUE,
+    legend.show = TRUE,  
+    legend.reverse = TRUE,
+    alpha = 0.7,
+    palette = rev(magma(30)), 
+    style = "cont",
+    breaks = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  tm_shape(seq_prot) +
+  tm_borders(col = "black", lwd = 1, lty = "solid") +  
+  tm_shape(redneck_data) +  # Add the points shape
+  tm_symbols(
+    col = "#00BFFF",          # Outline color
+    size = 0.15,            # Make the symbols smaller
+    shape = 1#,            # Shape 21 is a filled circle with border
+    #border.col = "white",   # Border color (same as outline color)
+    #border.lwd = 1#,        # Border line width
+    #fill = "transparent"   # Unfilled circles
+  ) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c("RIGHT", "center"),
+    legend.title.size = 0.1,
+    legend.text.size = 0.75
+  ) +
+  tm_compass(size = 3, position = c("RIGHT", "TOP")) +
+  tm_scale_bar(width = 0.2, position = c("LEFT", "BOTTOM"), breaks = c(0, 20, 40, 60),
+  text.size = 0.6, lwd = 0.5)+
+  tmap_options(check.and.fix = TRUE)
+
+# Print the map
+print(rnpad_rf)
+
+##== Blackstriped Wallaby pademelon
+bsw_rf <- tm_shape(bsw_rf_r85) + # bsw_rf, bsw_rf_r45, bsw_rf_r85
+  tm_raster(
+    title = "Likelihood", 
+    interpolate = TRUE,
+    legend.show = TRUE,  
+    legend.reverse = TRUE,
+    alpha = 0.7,
+    palette = rev(magma(30)), 
+    style = "cont",
+    breaks = c(0, 0.25, 0.5, 0.75, 1)
+  ) +
+  tm_shape(seq_prot) +
+  tm_borders(col = "black", lwd = 1, lty = "solid") +  
+  tm_shape(bsw_data) +  # Add the points shape
+  tm_symbols(
+    col = "#00BFFF",          # Outline color
+    size = 0.15,            # Make the symbols smaller
+    shape = 1#,            # Shape 21 is a filled circle with border
+    #border.col = "white",   # Border color (same as outline color)
+    #border.lwd = 1#,        # Border line width
+    #fill = "transparent"   # Unfilled circles
+  ) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c("RIGHT", "center"),
+    legend.title.size = 0.1,
+    legend.text.size = 0.75
+  ) +
+  tm_compass(size = 3, position = c("RIGHT", "TOP")) +
+  #tm_scale_bar(width = 0.2, position = c("LEFT", "BOTTOM"), breaks = c(0, 20, 40, 60),
+  #text.size = 0.6, lwd = 0.5)+
+  tmap_options(check.and.fix = TRUE)
+
+# Print the map
+print(bsw_rf)
+

@@ -1,0 +1,126 @@
+library(terra)
+
+## Protected area overlap
+
+# # Calculate cell size in square kilometers
+# cell_area_km2 <- res(egk_bin)[1] * res(egk_bin)[2] * (111.32^2) # approx. km per degree
+# 
+# # Count cells with value 1
+# num_cells_with_value_1 <- sum(values(egk_bin) == 1, na.rm = TRUE)
+# 
+# # Total area in square kilometers
+# total_area_km2 <- num_cells_with_value_1 * cell_area_km2
+# 
+# # Print result
+# print(paste("Total Area p10:", round(total_area_km2, digits = 1), "km²"))
+# 
+# # Mask egk_bin with seq_prot
+# egk_bin_masked <- mask(egk_bin, seq_prot)
+# 
+# # Calculate cell size in square kilometers (assuming approx. 111.32 km per degree at the latitude of interest)
+# cell_area_km2 <- res(egk_bin)[1] * res(egk_bin)[2] * (111.32^2)
+# 
+# # Count cells with value 1 in the masked raster
+# num_cells_with_value_1 <- sum(values(egk_bin_masked) == 1, na.rm = TRUE)
+# 
+# # Total area in square kilometers within the protected areas
+# total_area_km2 <- num_cells_with_value_1 * cell_area_km2
+# 
+# # Print result
+# print(paste("Total Area within protected areas:", round(total_area_km2, digits = 1), "km²"))
+
+library(terra)
+# convert to spatrasters
+egk_r45bin <- rast(egk_r45bin)
+egk_r85bin <- rast(egk_r85bin)
+sw_r45bin <- rast(sw_r45bin)
+rnw_r45bin <- rast(rnw_r45bin)
+pot_r45bin <- rast(pot_r45bin)
+rlpad_r45bin <- rast(rlpad_r45bin)
+rnpad_r45bin <- rast(rnpad_r45bin)
+
+# Assuming the rasters and seq_prot are already loaded
+# List of binary raster names
+raster_names <- c("egk_r85bin", "sw_r85bin", "rnw_r85bin", "pot_r85bin", "rlpad_r85bin", "rnpad_r85bin", "bsw_r85bin") 
+# curr names - "egk_bin", "sw_rf_bin", "rnw_rf_bin", "pot_bin", "rlpad_bin","rnpad_bin", "bsw_bin", "whip_maxbin"
+# r45 names - "egk_r45bin", "sw_r45bin", "rnw_r45bin", "pot_r45bin", "rlpad_r45bin", "rnpad_r45bin","bsw_r45bin"
+# r85 names - "egk_r85bin", "sw_r85bin", "rnw_r85bin", "pot_r85bin", "rlpad_r85bin", "rnpad_r85bin", "bsw_r85bin"
+
+# Initialize a matrix to store overlap areas
+overlap_matrix <- matrix(nrow = length(raster_names), ncol = 1, 
+                         dimnames = list(raster_names, "Overlap_Area_km²"))
+
+# Loop through each raster to calculate overlap area
+for (raster_name in raster_names) {
+  # Get the raster object by name
+  raster_layer <- get(raster_name)
+  
+  # Mask the raster with protected area
+  masked_raster <- mask(raster_layer, seq_prot)
+  
+  # Calculate cell size in square kilometers (assuming approx. 111.32 km per degree)
+  cell_area_km2 <- res(raster_layer)[1] * res(raster_layer)[2] * (111.32^2)
+  
+  # Count cells with value 1 in the masked raster
+  num_cells_with_value_1 <- sum(values(masked_raster) == 1, na.rm = TRUE)
+  
+  # Calculate the total overlap area in square kilometers
+  total_area_km2 <- num_cells_with_value_1 * cell_area_km2
+  
+  # Store the result in the matrix
+  overlap_matrix[raster_name, "Overlap_Area_km²"] <- round(total_area_km2, digits = 1)
+}
+
+# Print the matrix
+print(overlap_matrix)
+
+# ==== area of urban foorprint
+# Load the sf package
+library(sf)
+# Read the shapefile (replace "path/to/shapefile.shp" with the actual path)
+reg_landuse_sf <- st_read("E:/EGK/Sdm_project/rdata/seq_landuse.shp")
+
+reg_landuse_sf
+# Assuming reg_landuse_sf is your spatial data for different land uses
+urban_footprint <- reg_landuse_sf %>% 
+  filter(rluc2023 == "Urban Footprint")
+urban_footprint
+# Calculate total area of the urban footprint in square kilometers
+urban_area_km2 <- sum(urban_footprint$areaha) * 0.01 # Convert from hectares to square kilometers
+
+print(paste("Total Urban Footprint Area:", urban_area_km2, "km²")) # "Total Urban Footprint Area: 3330.52681868 km²"
+urban_footprint <- st_transform(urban_footprint, crs = st_crs(egk_bin))
+# Assuming the rasters and seq_prot are already loaded
+# List of binary raster names
+raster_names <- c("egk_bin", "sw_rf_bin", "rnw_rf_bin", "pot_bin", "rlpad_bin","rnpad_bin", "bsw_bin", "whip_maxbin") 
+
+# Initialize a matrix to store overlap areas
+overlap_matrix <- matrix(nrow = length(raster_names), ncol = 1, 
+                         dimnames = list(raster_names, "Overlap_Area_km²"))
+
+# Loop through each raster to calculate overlap area
+for (raster_name in raster_names) {
+  # Get the raster object by name
+  raster_layer <- get(raster_name)
+  
+  # Mask the raster with protected area
+  masked_raster <- mask(raster_layer, urban_footprint)
+  
+  # Calculate cell size in square kilometers (assuming approx. 111.32 km per degree)
+  cell_area_km2 <- res(raster_layer)[1] * res(raster_layer)[2] * (111.32^2)
+  
+  # Count cells with value 1 in the masked raster
+  num_cells_with_value_1 <- sum(values(masked_raster) == 1, na.rm = TRUE)
+  
+  # Calculate the total overlap area in square kilometers
+  total_area_km2 <- num_cells_with_value_1 * cell_area_km2
+  
+  # Store the result in the matrix
+  overlap_matrix[raster_name, "Overlap_Area_km²"] <- round(total_area_km2, digits = 1)
+}
+
+# Print the matrix
+print(overlap_matrix)
+
+
+

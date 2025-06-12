@@ -1,0 +1,515 @@
+# macro climate change models
+
+## now we can model - let's start with ** RCP 485 **
+
+## stack our raster layers of FUTURE climate and habitat
+#------ first match extent for both raster stacks
+# Step 1: Subset the layers from macpreds that you want to include
+selected_layers <- subset(mac_preds, c("ndvi", "soil", "elevation", "treecover"))
+
+# Step 2: Stack the selected layers with the r45_mean raster
+r45_raster <- stack(r45_mean, selected_layers)
+
+# Reordering layers to a specific order
+r45_raster <- subset(r45_raster, c("ndvi", "soil", "elevation", "treecover",  "Max_Mth_Precip", "Max_Mth_Max_Temp"))
+
+# Step 3: Check the result
+print(r45_raster)
+writeRaster(r45_raster, filename = "r45_modelraster.tif", overwrite = TRUE)
+
+## Same for R85 climate
+#  Stack the selected layers with the r45_mean raster
+r85_raster <- stack(r85_mean, selected_layers)
+
+# Reordering layers to a specific order
+r85_raster <- subset(r85_raster, c("ndvi", "soil", "elevation", "treecover",  "Max_Mth_Precip", "Max_Mth_Max_Temp"))
+
+# Check the result
+print(r85_raster)
+
+writeRaster(r85_raster, filename = "r85_modelraster.tif", overwrite = TRUE)
+
+##  Let's do some climate change modelling
+# EGK future species distribution # Predict future distribution using only the Random Forest model
+egk_rf_r45 <- predict(egk_mod, r45_raster,  mean = TRUE, method = 'rf')
+egk_rf_r45 
+
+# Apply the p10 threshold value used for current to create a binary map
+library(terra)
+# Assuming egk_rf_accr45 is already loaded as a SpatRaster object
+threshold_value <- 0.474617  # You can set this to your desired threshold
+egk_bin <- egk_rf_pred > threshold_value
+egk_r45bin <- egk_rf_r45 > threshold_value
+egk_r45bin
+
+
+# Plot the prob and binary raster
+par(mfrow = c(1, 2))
+plot(egk_rf_r45)
+plot(egk_r45bin)
+plot(egk_r85bin)
+
+egk_rf_r85 <- predict(egk_mod, r85_raster,  mean = TRUE, method = 'rf')
+egk_r85bin <- egk_rf_r85 > threshold_value
+
+writeRaster(egk_rf_r45, filename = "r45_egk_rf.tif", overwrite = TRUE)
+writeRaster(egk_rf_r85, filename = "r85_egk_rf.tif", overwrite = TRUE)
+# Import the stacked raster
+egk_rf_pred <- stack("E:/EGK/Sdm_project/rdata/egk_rf.tif")
+egk_rf_pred
+egk_rf_r45 <- stack("E:/EGK/Sdm_project/rdata/r45_egk_rf.tif")
+egk_rf_r85 <- stack("E:/EGK/Sdm_project/rdata/r85_egk_rf.tif")
+
+# Plot the future prediction for Random Forest
+# Set up a 1x3 plotting layout
+par(mfrow = c(1, 3))  # 1 row, 3 columns
+# current with r45 & r85 
+plot(egk_rf_pred, main = "RF-eDist Map with EGK Locations")
+plot(egk_rf_r45, main = "R45 Future Distribution (RF)")
+plot(egk_rf_r85, main = "R85 Future Distribution (RF)")
+# Reset to default single-panel plotting layout
+par(mfrow = c(1, 1))
+
+### binary maps
+library(terra)
+library(raster)
+library(sp)
+# Convert SpatRaster to RasterLayer
+# Load the raster directly from the file
+egk_r45_raster <- raster("E:/EGK/Sdm_project/rdata/r45_egk_rf.tif")
+egk_r85_raster <- raster("E:/EGK/Sdm_project/rdata/r85_egk_rf.tif")
+plot(egk_rf_pred)
+# Now we can use the sdm_threshold function with the RasterLayer
+# egk_r45_p10 <- sdm_threshold(egk_r45_raster, egk_data, "p10", binary = TRUE) # remove binary element for prob map
+# egk_r45_p10
+# egk_r85_p10 <- sdm_threshold(egk_r85_raster, egk_data, "p10", binary = TRUE)
+crop_egkr45_p10 <- crop(egk_r45bin, buffered_extent)
+crop_egkr85_p10 <- crop(egk_r85bin, buffered_extent)
+# 
+# egk_r45_p10
+dev.off()
+par(mar = c(0, 0, 0, 0))
+# Set up the plotting area for three side-by-side maps
+par(mfrow = c(1, 3), mar = c(1, 1, 1, 1))
+# current
+plot(corp_egk_p10,interpolate=TRUE, main = "RF- current",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(egk_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# r45
+plot(crop_egkr45_p10,interpolate=TRUE, main = "RF-R45",
+     col = c("white", "green" ),legend = FALSE, axes = FALSE, box = FALSE) 
+points(egk_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+#writeRaster(crop_egkr45_p10, filename="egk_r45bin_raster.tif", format="GTiff", overwrite=TRUE)
+# r85
+plot(crop_egkr85_p10,interpolate=TRUE, main = "RF-R85",
+     col = c("white", "green"),legend = FALSE, axes = FALSE, box = FALSE) 
+points(egk_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# Convert the binary raster to polygons to exp shapefiles
+egkr45_to_polygon <- rasterToPolygons(crop_egkr45_p10, fun=function(x) { x == 1 }, na.rm=TRUE)
+egkr85_to_polygon <- rasterToPolygons(crop_egkr85_p10, fun=function(x) { x == 1 }, na.rm=TRUE)
+# Simplify the polygons by removing small areas (optional, adjust threshold as needed)
+egkr85_to_polygon_simplified <- egkr85_to_polygon %>% # change this for climate model
+  st_as_sf() %>%
+  st_make_valid() %>%
+  st_union() %>% 
+  st_collection_extract("POLYGON")
+
+# Export simplified polygons to a shapefile
+st_write(egkr85_to_polygon_simplified , "egkr85_polygon.shp", delete_layer = TRUE)
+
+library(geosphere)
+sqm<-areaPolygon(egkr85_to_polygon_simplified)
+
+##== Swampy climate
+# future species distribution # Predict future distribution using only the Random Forest model
+sw_rf_r45 <- predict(sw_mod, r45_raster,  mean = TRUE, method = 'rf')
+sw_rf_r85 <- predict(sw_mod, r85_raster,  mean = TRUE, method = 'rf')
+
+writeRaster(sw_rf_r45, filename = "r45_sw_rf.tif", overwrite = TRUE)
+writeRaster(sw_rf_r85, filename = "r85_sw_rf.tif", overwrite = TRUE)
+# Read the raster file
+sw_rf_r45 <- rast("r45_sw_rf.tif")
+sw_rf_r85 <- rast("r85_sw_rf.tif")
+sw_rf_r45
+# Plot the future prediction for Random Forest
+# current with r45 & r85 
+sw_rf_pred <- readRDS("sw_rfmod_live.rds")
+plot(sw_rf_pred, main = "RF-eDist Map - SW")
+plot(sw_rf_r45, main = "R45 Future Distribution - SW (RF)")
+plot(sw_rf_r85, main = "R85 Future Distribution - SW (RF)")
+
+# binary climate _ SCC
+sw_thresh <- 0.4544053  # You can set this to your desired threshold
+sw_rf_bin <- sw_rf_pred > sw_thresh
+sw_r45bin <- sw_rf_r45 > sw_thresh
+sw_r85bin <- sw_rf_r85 > sw_thresh
+# crops to scc
+crop_sw_r45 <- crop(sw_r45bin, buffered_extent)
+crop_sw_r85 <- crop(sw_r85bin, buffered_extent)
+
+par(mfrow = c(1, 3), mar = c(1, 1, 1, 1))
+plot(crop_sw_p10, main = "RF - SW current",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(sw_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# r45
+plot(crop_sw_r45, main = "RF - SW R45",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(sw_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+#writeRaster(crop_egkr45_p10, filename="egk_r45bin_raster.tif", format="GTiff", overwrite=TRUE)
+# r85
+plot(crop_sw_r85,main = "RF- SW R85",
+     col = c("white", "green"),legend = FALSE, axes = FALSE, box = FALSE) 
+points(sw_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# Convert the binary raster to polygons to exp shapefiles
+crop_sw_r45
+
+# Convert SpatRaster to Raster
+crop_sw_r45_raster <- raster(crop_sw_r45)
+crop_sw_r85_raster <- raster(crop_sw_r85)
+swr45_to_polygon <- rasterToPolygons(crop_sw_r45_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+swr85_to_polygon <- rasterToPolygons(crop_sw_r85_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+# Simplify the polygons by removing small areas (optional, adjust threshold as needed)
+swr85_to_polygon_simplified <- swr85_to_polygon %>% # change this for climate model
+  st_as_sf() %>%
+  st_make_valid() %>%
+  st_union() %>% 
+  st_collection_extract("POLYGON")
+
+# Export simplified polygons to a shapefile
+st_write(swr85_to_polygon_simplified , "swr85_polygon.shp", delete_layer = TRUE)
+
+##== Redneck Wallaby climate
+# future species distribution using only the Random Forest model
+rnw_rf_r45 <- predict(rnw_mod, r45_raster,  mean = TRUE, method = 'rf')
+rnw_rf_r85 <- predict(rnw_mod, r85_raster,  mean = TRUE, method = 'rf')
+
+writeRaster(rnw_rf_r45, filename = "r45_rnw_rf.tif", overwrite = TRUE)
+writeRaster(rnw_rf_r85, filename = "r85_rnw_rf.tif", overwrite = TRUE)
+
+# Read the raster file
+rnw_rf_r45 <- rast("r45_rnw_rf.tif")
+rnw_rf_r85 <- rast("r85_rnw_rf.tif")
+
+# Plot the future prediction for Random Forest
+# current with r45 & r85 
+rnw_rf_pred <- readRDS("rnw_rfmod_live.rds")
+rnw_rf_bin
+plot(rnw_rf_pred, main = "RF-eDist Map - RNW")
+plot(rnw_rf_r45, main = "R45 Future Distribution - RNW (RF)")
+plot(rnw_rf_r85, main = "R85 Future Distribution - RNW(RF)")
+
+# binary climate _ SCC
+rnw_thresh <- 0.4612  # You can set this to your desired threshold
+rnw_rf_bin <- rnw_rf_pred > rnw_thresh
+rnw_r45bin <- rnw_rf_r45 > rnw_thresh
+rnw_r85bin <- rnw_rf_r85 > rnw_thresh
+# crops to scc
+crop_rnw_r45 <- crop(rnw_r45bin, buffered_extent)
+crop_rnw_r85 <- crop(rnw_r85bin, buffered_extent)
+plot(crop_rnw_p10, main = "RF - RNW current",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(rnw_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# r45
+plot(crop_rnw_r45, main = "RF - RNW R45",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(rnw_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+#writeRaster(crop_egkr45_p10, filename="egk_r45bin_raster.tif", format="GTiff", overwrite=TRUE)
+# r85
+plot(crop_rnw_r85,main = "RF- RNW R85",
+     col = c("white", "green"),legend = FALSE, axes = FALSE, box = FALSE) 
+points(rnw_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# Convert to polygons
+#Convert SpatRaster to Raster
+crop_rnw_r45_raster <- raster(crop_rnw_r45)
+crop_rnw_r85_raster <- raster(crop_rnw_r85)
+rnwr45_to_polygon <- rasterToPolygons(crop_rnw_r45_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+rnwr85_to_polygon <- rasterToPolygons(crop_rnw_r85_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+# Simplify the polygons by removing small areas (optional, adjust threshold as needed)
+library(sf)
+rnw85_to_polygon_simplified <- rnwr85_to_polygon %>% # change this for climate model
+  st_as_sf() %>%
+  st_make_valid() %>%
+  st_union() %>% 
+  st_collection_extract("POLYGON")
+
+# no future areas at or above p10 threshold
+
+##== Potaroos climate
+# future species distribution using only the Random Forest model
+pot_rf_r45 <- predict(pot_mod, r45_raster,  mean = TRUE, method = 'rf')
+pot_rf_r85 <- predict(pot_mod, r85_raster,  mean = TRUE, method = 'rf')
+
+writeRaster(pot_rf_r45, filename = "r45_pot_rf.tif", overwrite = TRUE)
+writeRaster(pot_rf_r85, filename = "r85_pot_rf.tif", overwrite = TRUE)
+
+# Read the raster file
+pot_rf_r45 <- rast("r45_pot_rf.tif")
+pot_rf_r85 <- rast("r85_pot_rf.tif")
+
+# Plot the future prediction for Random Forest
+# current with r45 & r85 
+pot_rf_pred <- readRDS("pot_rfmod_live.rds")
+pot_rf_pred
+plot(pot_rf_pred, main = "RF-eDist Map - POT")
+plot(pot_rf_r45, main = "R45 Future Distribution - POT(RF)")
+plot(pot_rf_r85, main = "R85 Future Distribution - POT(RF)")
+
+# Binary 
+pot_thresh <- 0.419937  # You can set this to your desired threshold
+pot_bin <- pot_rf_pred > pot_thresh
+pot_r45bin <- pot_rf_r45 > pot_thresh
+pot_r85bin <- pot_rf_r85 > pot_thresh
+# crops to scc
+crop_pot_r45 <- crop(pot_r45bin , buffered_extent)
+crop_pot_r85 <- crop(pot_r85bin, buffered_extent)
+# bin plots
+par(mfrow = c(1, 3), mar = c(1, 1, 1, 1))
+plot(crop_pot_p10, main = "RF - POT current",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(pot_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# r45
+plot(crop_pot_r45, main = "RF - POT R45",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(pot_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+#writeRaster(crop_egkr45_p10, filename="egk_r45bin_raster.tif", format="GTiff", overwrite=TRUE)
+# r85
+plot(crop_pot_r85,main = "RF- POT R85",
+     col = c("white", "green"),legend = FALSE, axes = FALSE, box = FALSE) 
+points(pot_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+
+#Convert SpatRaster to Raster
+crop_pot_r45_raster <- raster(crop_pot_r45)
+crop_pot_r85_raster <- raster(crop_pot_r85)
+potr45_to_polygon <- rasterToPolygons(crop_pot_r45_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+potr85_to_polygon <- rasterToPolygons(crop_pot_r85_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+# Simplify the polygons by removing small areas (optional, adjust threshold as needed)
+library(sf)
+potr85_to_polygon_simplified <- potr85_to_polygon %>% # change this for climate model
+  st_as_sf() %>%
+  st_make_valid() %>%
+  st_union() %>% 
+  st_collection_extract("POLYGON")
+# Export simplified polygons to a shapefile
+st_write(potr85_to_polygon_simplified , "potr85_polygon.shp", delete_layer = TRUE)
+
+##== Red leg pademelon  climate
+# future species distribution using only the Random Forest model
+rlpad_rf_r45 <- predict(rlpad_mod, r45_raster,  mean = TRUE, method = 'rf')
+rlpad_rf_r85 <- predict(rlpad_mod, r85_raster,  mean = TRUE, method = 'rf')
+
+writeRaster(rlpad_rf_r45, filename = "r45_rlpad_rf.tif", overwrite = TRUE)
+writeRaster(rlpad_rf_r85, filename = "r85_rlpad_rf.tif", overwrite = TRUE)
+
+# Read the raster file
+rlpad_rf_r45 <- rast("r45_rlpad_rf.tif")
+rlpad_rf_r85 <- rast("r85_rlpad_rf.tif")
+
+# Plot the future prediction for Random Forest
+# current with r45 & r85 
+rlpad_rf_pred <- readRDS("rlpad_rfmod_live.rds")
+rlpad_rf_pred
+plot(rlpad_rf_pred, main = "RF-eDist Map - RLPAD")
+plot(rlpad_rf_r45, main = "R45 - RLPAD(RF)")
+plot(rlpad_rf_r85, main = "R85 - RLPAD(RF)")
+# Binary 
+rlpad_thresh <- 0.48  # You can set this to your desired threshold
+rlpad_bin <- rlpad_rf_pred > rlpad_thresh
+rlpad_r45bin <- rlpad_rf_r45 > rlpad_thresh
+rlpad_r85bin <- rlpad_rf_r85 > rlpad_thresh
+# crops to scc
+crop_rlpad_r45 <- crop(rlpad_r45bin , buffered_extent)
+crop_rlpad_r85 <- crop(rlpad_r85bin, buffered_extent)
+# bin plots
+par(mfrow = c(1, 3), mar = c(1, 1, 1, 1))
+plot(crop_rlpad_p10, main = "RF - RLPAD current",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(rlpad_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# r45
+plot(crop_rlpad_r45, main = "RF - RLPAD R45",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(rlpad_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+#writeRaster(crop_egkr45_p10, filename="egk_r45bin_raster.tif", format="GTiff", overwrite=TRUE)
+# r85
+plot(crop_rlpad_r85,main = "RF- RLPAD R85",
+     col = c("white", "green"),legend = FALSE, axes = FALSE, box = FALSE) 
+points(rlpad_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+
+#Convert SpatRaster to Raster
+crop_rlpad_r45_raster <- raster(crop_rlpad_r45)
+crop_rlpad_r85_raster <- raster(crop_rlpad_r85)
+rlpadr45_to_polygon <- rasterToPolygons(crop_rlpad_r45_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+rlpadr85_to_polygon <- rasterToPolygons(crop_rlpad_r85_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+# Simplify the polygons by removing small areas (optional, adjust threshold as needed)
+library(sf)
+rlpadr85_to_polygon_simplified <- rlpadr85_to_polygon %>% # change this for climate model
+  st_as_sf() %>%
+  st_make_valid() %>%
+  st_union() %>% 
+  st_collection_extract("POLYGON")
+# Export simplified polygons to a shapefile - no future areas
+#st_write(rnpadr85_to_polygon_simplified , "rnpadr85_polygon.shp", delete_layer = TRUE)
+
+##== Red neck pademelon  climate
+# future species distribution using only the Random Forest model
+rnpad_rf_r45 <- predict(rnpad_mod, r45_raster,  mean = TRUE, method = 'rf')
+rnpad_rf_r85 <- predict(rnpad_mod, r85_raster,  mean = TRUE, method = 'rf')
+rnpad_rf_pred
+
+writeRaster(rnpad_rf_r45, filename = "r45_rnpad_rf.tif", overwrite = TRUE)
+writeRaster(rnpad_rf_r85, filename = "r85_rnpad_rf.tif", overwrite = TRUE)
+
+# Read the raster file
+rnpad_rf_r45 <- rast("r45_rnpad_rf.tif")
+rnpad_rf_r85 <- rast("r85_rnpad_rf.tif")
+
+# Plot the future prediction for Random Forest
+# current with r45 & r85 
+rnpad_rf_pred <- readRDS("rnpad_rfmod_live.rds")
+
+plot(rnpad_rf_pred, main = "RF-eDist Map - RNPAD")
+plot(rnpad_rf_r45, main = "R45 - RNPAD(RF)")
+plot(rnpad_rf_r85, main = "R85 - RNPAD(RF)")
+# binary maps
+# Binary 
+rnpad_thresh <- 0.476586666666667  # set this to the p10 threshold
+rnpad_bin <- rnpad_rf_pred > rnpad_thresh
+rnpad_bin
+rnpad_r45bin <- rnpad_rf_r45 > rnpad_thresh
+rnpad_r85bin <- rnpad_rf_r85 > rnpad_thresh
+# crops to scc
+crop_rnpad_r45 <- crop(rnpad_r45bin , buffered_extent)
+crop_rnpad_r85 <- crop(rnpad_r85bin, buffered_extent)
+# bin plots
+par(mfrow = c(1, 3), mar = c(1, 1, 1, 1))
+plot(crop_rnpad_p10, main = "RF - RNPAD current",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(redneck_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+# r45
+plot(crop_rnpad_r45, main = "RF - POT R45",
+     col = c("white", "green"), legend = FALSE, axes = FALSE, box = FALSE) 
+points(redneck_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+library(sf)
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+#writeRaster(crop_egkr45_p10, filename="egk_r45bin_raster.tif", format="GTiff", overwrite=TRUE)
+# r85
+plot(crop_rnpad_r85,main = "RF- POT R85",
+     col = c("white", "green"),legend = FALSE, axes = FALSE, box = FALSE) 
+points(redneck_data, col = "blue", pch = 20, cex = 0.2)
+# Add the transformed shapefile to the plot
+plot(st_geometry(SCC_shapefile_transformed), col = NA, border = "black", add = TRUE)
+
+#Convert SpatRaster to Raster
+crop_rnpad_r45_raster <- raster(crop_rnpad_r45)
+crop_rnpad_r85_raster <- raster(crop_rnpad_r85)
+rnpadr45_to_polygon <- rasterToPolygons(crop_rnpad_r45_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+rnpadr85_to_polygon <- rasterToPolygons(crop_rnpad_r85_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+# Simplify the polygons by removing small areas (optional, adjust threshold as needed)
+library(sf)
+rnpadr85_to_polygon_simplified <- rnpadr85_to_polygon %>% # change this for climate model
+  st_as_sf() %>%
+  st_make_valid() %>%
+  st_union() %>% 
+  st_collection_extract("POLYGON")
+# Export simplified polygons to a shapefile
+st_write(rnpadr85_to_polygon_simplified , "rnpadr85_polygon.shp", delete_layer = TRUE)
+
+##== Black striped Wallaby  climate
+# future species distribution using only the Random Forest model
+bsw_rf_r45 <- predict(bsw_mod, r45_raster,  mean = TRUE, method = 'rf')
+bsw_rf_r85 <- predict(bsw_mod, r85_raster,  mean = TRUE, method = 'rf')
+  # bsw maxent
+# bsw_max_r45 <- predict(bsw_mod, r45_raster,  mean = TRUE, method = 'maxent')
+# bsw_max_r85 <- predict(bsw_mod, r85_raster,  mean = TRUE, method = 'maxent')
+
+writeRaster(bsw_rf_r45, filename = "r45_bsw_rf.tif", overwrite = TRUE)
+writeRaster(bsw_rf_r85, filename = "r85_bsw_rf.tif", overwrite = TRUE)
+# writeRaster(bsw_max_r45, filename = "r45_bsw_max.tif", overwrite = TRUE)
+# writeRaster(bsw_max_r85, filename = "r85_bsw_max.tif", overwrite = TRUE)
+
+# Read the raster file
+bsw_rf_r45 <- rast("r45_bsw_rf.tif")
+bsw_rf_r85 <- rast("r85_bsw_rf.tif")
+# bsw_max_r45 <- stack("r45_bsw_max.tif")
+# bsw_max_r85 <- stack("r85_bsw_max.tif")
+
+# Plot the future prediction for Random Forest
+# current with r45 & r85 
+bsw_rf_pred <- readRDS("bsw_rf.tif")
+#bsw_max_pred <- readRDS("bsw_max.tif")
+
+# Convert SpatRaster to RasterStack
+# bsw_rf_pred <- stack(bsw_rf_pred)
+# bsw_rf_pred
+# Check to see if conversion affected the range
+summary(bsw_rf_pred)
+
+plot(bsw_rf_pred, main = "RF-eDist Map - BSW")
+plot(bsw_rf_r45, main = "R45 - BSW (RF)")
+plot(bsw_rf_r85, main = "R85 - BSW (RF)")
+
+# Binary 
+bsw_thresh <- 0.452833333333333  # set this to the p10 threshold
+bsw_bin <- bsw_rf_pred > bsw_thresh
+bsw_r45bin <- bsw_rf_r45 > bsw_thresh
+bsw_r85bin <- bsw_rf_r85 > bsw_thresh
+# crops to scc
+crop_bsw_r45 <- crop(bsw_r45bin , buffered_extent)
+crop_bsw_r85 <- crop(bsw_r85bin, buffered_extent)
+
+#Convert SpatRaster to Raster
+crop_rnpad_r45_raster <- raster(crop_rnpad_r45)
+crop_rnpad_r85_raster <- raster(crop_rnpad_r85)
+rnpadr45_to_polygon <- rasterToPolygons(crop_rnpad_r45_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+rnpadr85_to_polygon <- rasterToPolygons(crop_rnpad_r85_raster, fun=function(x) { x == 1 }, na.rm=TRUE)
+# Simplify the polygons by removing small areas (optional, adjust threshold as needed)
+library(sf)
+rnpadr85_to_polygon_simplified <- rnpadr85_to_polygon %>% # change this for climate model
+  st_as_sf() %>%
+  st_make_valid() %>%
+  st_union() %>% 
+  st_collection_extract("POLYGON")
+# Export simplified polygons to a shapefile
+st_write(rnpadr85_to_polygon_simplified , "rnpadr85_polygon.shp", delete_layer = TRUE)
+
+
